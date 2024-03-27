@@ -1,12 +1,3 @@
-import {
-  Pagination,
-  PaginationButton,
-  PaginationContent,
-  PaginationEllipsis,
-  PaginationItem,
-  PaginationNext,
-  PaginationPrevious
-} from '@/components/ui/Pagination';
 import { Skeleton } from '@/components/ui/Skeleton';
 import {
   Table,
@@ -18,15 +9,41 @@ import {
   TableRow,
 } from '@/components/ui/Table';
 import { useClients } from '@/hooks/useClients';
-import { generateEllipsisPagination } from '@/lib/utils';
-import { useMemo } from 'react';
+import { cn } from '@/lib/utils';
+import { useEffect, useRef } from 'react';
 
 export function Clients() {
-  const { clients, isLoading, pagination } = useClients(1);
+  const { clients, isLoading, hasNextPage, isFetchingNextPage, nextPage } = useClients();
+  const tableCaptionRef = useRef<null | HTMLTableCaptionElement>(null);
 
-  const pages = useMemo(() => {
-    return generateEllipsisPagination(pagination.currentPage, pagination.totalPages);
-  }, [pagination.currentPage, pagination.totalPages]);
+  useEffect(() => {
+    if (!tableCaptionRef.current) {
+      return;
+    }
+
+    const observer = new IntersectionObserver((entries, obs) => {
+      const { isIntersecting } = entries[0];
+
+      console.log({ isIntersecting });
+
+      if (!hasNextPage) {
+        obs.disconnect();
+        return;
+      }
+
+      if (isIntersecting && hasNextPage && !isFetchingNextPage) {
+        nextPage();
+      }
+    }, {
+      rootMargin: '200px'
+    });
+
+    observer.observe(tableCaptionRef.current);
+
+    return () => {
+      observer.disconnect();
+    };
+  }, [isLoading, hasNextPage, nextPage]);
 
   return (
     <div>
@@ -90,50 +107,17 @@ export function Clients() {
             ))}
           </TableBody>
 
-          <TableCaption>
-            <Pagination>
-              <PaginationContent>
-                <PaginationItem>
-                  <PaginationPrevious
-                    onClick={pagination.previousPage}
-                    disabled={!pagination.hasPreviousPage}
-                  />
-                </PaginationItem>
-
-                {pages.map(page => {
-                  const isEllipsisPosition = typeof page === 'string';
-
-                  if (isEllipsisPosition) {
-                    return (
-                      <PaginationItem key={page}>
-                        <PaginationButton disabled>
-                          <PaginationEllipsis />
-                        </PaginationButton>
-                      </PaginationItem>
-                    );
-                  }
-
-                  return (
-                    <PaginationItem key={page}>
-                      <PaginationButton
-                        isActive={pagination.currentPage === page}
-                        onClick={() => pagination.setPage(page)}
-                      >
-                        {page}
-                      </PaginationButton>
-                    </PaginationItem>
-                  );
-                })}
-
-                <PaginationItem>
-                  <PaginationNext
-                    onClick={pagination.nextPage}
-                    disabled={!pagination.hasNextPage}
-                  />
-                </PaginationItem>
-
-              </PaginationContent>
-            </Pagination>
+          <TableCaption
+            ref={tableCaptionRef}
+            className={cn(
+              !isFetchingNextPage && 'm-0 w-0 h-0'
+            )}
+          >
+            {isFetchingNextPage && (
+              <span className='text-muted-foreground'>
+                Carregando mais dados...
+              </span>
+            )}
           </TableCaption>
         </Table>
       )}
