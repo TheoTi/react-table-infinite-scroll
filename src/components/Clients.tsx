@@ -1,11 +1,3 @@
-import {
-  Pagination,
-  PaginationButton,
-  PaginationContent,
-  PaginationItem,
-  PaginationNext,
-  PaginationPrevious
-} from '@/components/ui/Pagination';
 import { Skeleton } from '@/components/ui/Skeleton';
 import {
   Table,
@@ -17,10 +9,41 @@ import {
   TableRow,
 } from '@/components/ui/Table';
 import { useClients } from '@/hooks/useClients';
+import { cn } from '@/lib/utils';
+import { useEffect, useRef } from 'react';
 
 export function Clients() {
-  const { clients, isLoading } = useClients();
+  const { clients, isLoading, hasNextPage, isFetchingNextPage, nextPage } = useClients();
+  const tableCaptionRef = useRef<null | HTMLTableCaptionElement>(null);
 
+  useEffect(() => {
+    if (!tableCaptionRef.current) {
+      return;
+    }
+
+    const observer = new IntersectionObserver((entries, obs) => {
+      const { isIntersecting } = entries[0];
+
+      console.log({ isIntersecting });
+
+      if (!hasNextPage) {
+        obs.disconnect();
+        return;
+      }
+
+      if (isIntersecting && hasNextPage && !isFetchingNextPage) {
+        nextPage();
+      }
+    }, {
+      rootMargin: '200px'
+    });
+
+    observer.observe(tableCaptionRef.current);
+
+    return () => {
+      observer.disconnect();
+    };
+  }, [isLoading, hasNextPage, nextPage]);
 
   return (
     <div>
@@ -84,31 +107,17 @@ export function Clients() {
             ))}
           </TableBody>
 
-          <TableCaption>
-            <Pagination>
-              <PaginationContent>
-                <PaginationItem>
-                  <PaginationPrevious />
-                </PaginationItem>
-
-                <PaginationItem>
-                  <PaginationButton isActive>
-                    1
-                  </PaginationButton>
-                </PaginationItem>
-
-                <PaginationItem>
-                  <PaginationButton>
-                    2
-                  </PaginationButton>
-                </PaginationItem>
-
-                <PaginationItem>
-                  <PaginationNext />
-                </PaginationItem>
-
-              </PaginationContent>
-            </Pagination>
+          <TableCaption
+            ref={tableCaptionRef}
+            className={cn(
+              !isFetchingNextPage && 'm-0 w-0 h-0'
+            )}
+          >
+            {isFetchingNextPage && (
+              <span className='text-muted-foreground'>
+                Carregando mais dados...
+              </span>
+            )}
           </TableCaption>
         </Table>
       )}
